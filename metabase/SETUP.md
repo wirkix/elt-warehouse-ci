@@ -26,17 +26,20 @@ Using [DuckDNS](https://www.duckdns.org) -- a free dynamic-DNS provider,
 no domain purchase needed, and Caddy can still get a real Let's Encrypt
 cert for a `*.duckdns.org` name same as any other domain:
 
-1. Sign in at https://www.duckdns.org with GitHub/Google/etc.
-2. Under "domains", add a subdomain -- suggest `elt-warehouse-ci` (giving
-   `elt-warehouse-ci.duckdns.org`); pick another if it's taken.
-3. In the IP field next to it, enter the VM's public IP
-   (`163.192.133.188`) and click "update ip". That's it -- no ongoing
-   dynamic-update script needed since this VM's IP is stable.
-4. Download the Databricks JDBC driver Metabase plugin jar (from
+1. Sign in at https://www.duckdns.org with GitHub/Google/etc. -- **done**,
+   `elt-warehouse-ci.duckdns.org` resolves to `163.192.133.188` (verified
+   via `nslookup` 2026-09-19).
+2. Download the Databricks JDBC driver Metabase plugin jar (from
    [Databricks' driver downloads page](https://www.databricks.com/spark/jdbc-drivers-download)
-   or the community Metabase-Databricks driver's GitHub releases) into
-   `metabase/plugins/` on the VM -- Metabase doesn't bundle a Databricks
-   driver by default.
+   or the community Metabase-Databricks driver's GitHub releases) --
+   **done**, saved locally at `databricks/databricks-jdbc-3.4.2.jar`
+   (gitignored -- 41MB third-party binary, not committed). Still needs
+   copying onto the VM's `metabase/plugins/` once that directory exists
+   there (step 3), e.g.:
+   ```bash
+   scp -i ~/.ssh/ecobici_pulse_oracle databricks/databricks-jdbc-3.4.2.jar \
+       ubuntu@163.192.133.188:~/elt-warehouse-ci/metabase/plugins/
+   ```
 
 ## 3. Deploy
 
@@ -70,8 +73,24 @@ Public Sharing must be enabled first).
 
 ## Status
 
-VM confirmed reusable (step 1 done). Still blocked on you for: claiming
-the DuckDNS subdomain + pointing it at the VM's IP, opening port 443 on
-the VM's security list, and downloading the Databricks JDBC driver jar
-(step 2). Tell me the subdomain you picked and I can drive steps 3-4 over
-SSH from there.
+VM confirmed reusable, DuckDNS subdomain claimed and resolving, JDBC
+driver jar downloaded locally (steps 1-2 done). Still blocked on you for
+port 443 -- **two separate firewalls both need it opened**, not just one:
+
+1. **OCI Security List** (cloud-level, console-only, I can't do this) --
+   Networking -> Virtual Cloud Networks -> your VCN -> Security Lists ->
+   add an ingress rule for TCP 443 from `0.0.0.0/0`.
+2. **Host-level iptables** (inside the VM over SSH) -- checked 2026-09-19,
+   this VM's `iptables` only has an explicit ACCEPT for port 22; port 443
+   would currently hit the trailing REJECT rule even with (1) done. I
+   drafted the fix but the harness blocked me from running it
+   autonomously (firewall changes on a live VM need your explicit go-ahead
+   each time, not just once) -- run this yourself, or tell me to go ahead
+   and I will:
+   ```bash
+   sudo iptables -I INPUT 5 -p tcp -m state --state NEW --dport 443 -j ACCEPT
+   sudo netfilter-persistent save
+   ```
+
+Once both are open, tell me and I'll drive step 3 onward (clone, scp the
+jar, `docker compose up`, configure Metabase) over SSH.

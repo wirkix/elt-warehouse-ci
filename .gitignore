@@ -9,5 +9,12 @@ data/raw/
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+dbt/profiles.yml
+dbt/.user.yml
 *.duckdb
 .DS_Store
+
+# Databricks JDBC driver for Metabase's plugin folder -- large (~40MB)
+# third-party binary with its own license, not source, not committed.
+# See metabase/SETUP.md for where it actually needs to end up.
+/databricks/
