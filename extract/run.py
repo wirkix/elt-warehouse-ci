@@ -26,29 +26,36 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _fetch_then_land(table: str, records) -> None:
+    # Opens a fresh Databricks connection right before landing, rather
+    # than reusing one connection across the whole run -- balldontlie's
+    # 5 req/min limit means fetching a large table (e.g. ~7,400 players,
+    # ~15 minutes) leaves a shared connection idle for minutes at a time.
+    # Found live: the SEA client doesn't error on a connection gone stale
+    # after an idle gap like that, it just hangs indefinitely on the next
+    # statement (0s CPU, no active network connection, no exception ever
+    # raised) -- the same class of bug as ecobici-pulse's dropped-
+    # connection consumer, just silent instead of a clean error here.
+    with get_connection() as connection:
+        landed = land_records(connection, table, records)
+        logger.info("landed %d %s", landed, table)
+
+
 def main() -> None:
     args = parse_args()
     client = BalldontlieClient()
-    connection = get_connection()
 
-    try:
-        teams = [Team.model_validate(row) for row in client.teams()]
-        landed = land_records(connection, "teams", teams)
-        logger.info("landed %d teams", landed)
+    teams = [Team.model_validate(row) for row in client.teams()]
+    _fetch_then_land("teams", teams)
 
-        players = [Player.model_validate(row) for row in client.players()]
-        landed = land_records(connection, "players", players)
-        logger.info("landed %d players", landed)
+    players = [Player.model_validate(row) for row in client.players()]
+    _fetch_then_land("players", players)
 
-        games = [Game.model_validate(row) for row in client.games(args.seasons)]
-        landed = land_records(connection, "games", games)
-        logger.info("landed %d games", landed)
+    games = [Game.model_validate(row) for row in client.games(args.seasons)]
+    _fetch_then_land("games", games)
 
-        stats = [Stat.model_validate(row) for row in client.stats(args.seasons)]
-        landed = land_records(connection, "stats", stats)
-        logger.info("landed %d stats rows", landed)
-    finally:
-        connection.close()
+    stats = [Stat.model_validate(row) for row in client.stats(args.seasons)]
+    _fetch_then_land("stats", stats)
 
 
 if __name__ == "__main__":

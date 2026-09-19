@@ -18,6 +18,10 @@ env:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    # Safety net, not the fix: a stale Databricks SEA connection hangs
+    # rather than erroring (found live -- see extract/run.py's comment),
+    # so bound the worst case instead of a silent multi-hour CI run.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
