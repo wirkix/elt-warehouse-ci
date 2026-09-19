@@ -21,6 +21,16 @@ from datetime import UTC, datetime
 from databricks import sql
 from pydantic import BaseModel
 
+# databricks-sql-connector's cursor.executemany() issues one sequential
+# HTTP request per row (no server-side batching -- see its own docstring:
+# "This will issue N sequential request to the database"). For anything
+# past a few hundred rows that's the difference between a few seconds and
+# multiple hours: found live when landing 7,414 players hung for 1.5+
+# hours doing effectively nothing (0.02s CPU used) because it was mid-way
+# through 7,414 sequential round trips. Batching multiple rows into each
+# INSERT's VALUES list instead cuts that to one request per chunk.
+INSERT_CHUNK_SIZE = 1000
+
 
 def get_connection():
     catalog = os.environ.get("DATABRICKS_CATALOG", "workspace")
@@ -68,11 +78,18 @@ def land_records(connection, table: str, records: Iterable[BaseModel]) -> int:
             f"CREATE OR REPLACE TABLE {staging_table} "
             "(id BIGINT, payload STRING, ingested_at TIMESTAMP) USING DELTA"
         )
-        cursor.executemany(
-            f"INSERT INTO {staging_table} (id, payload, ingested_at) "
-            "VALUES (%(id)s, %(payload)s, %(ingested_at)s)",
-            rows,
-        )
+        for start in range(0, len(rows), INSERT_CHUNK_SIZE):
+            chunk = rows[start : start + INSERT_CHUNK_SIZE]
+            values_sql = ", ".join(
+                f"(%(id_{i})s, %(payload_{i})s, %(ingested_at_{i})s)" for i in range(len(chunk))
+            )
+            params = {
+                f"{key}_{i}": row[key] for i, row in enumerate(chunk) for key in ("id", "payload", "ingested_at")
+            }
+            cursor.execute(
+                f"INSERT INTO {staging_table} (id, payload, ingested_at) VALUES {values_sql}",
+                params,
+            )
         cursor.execute(
             f"MERGE INTO {raw_table} AS target "
             f"USING {staging_table} AS source "
