@@ -1,6 +1,7 @@
-# Copy to Caddyfile on the VM and fill in the real subdomain -- Caddy
-# fetches/renews the Let's Encrypt cert for it automatically on first run,
-# no manual certbot step needed.
-metabase.YOURDOMAIN.tld {
+# Copy to Caddyfile on the VM. Caddy fetches/renews the Let's Encrypt cert
+# for this name automatically on first run, no manual certbot step needed
+# -- a *.duckdns.org name works exactly like any other domain here, as
+# long as it already resolves to this VM's IP (see SETUP.md step 2).
+elt-warehouse-ci.duckdns.org {
     reverse_proxy metabase:3000
 }
