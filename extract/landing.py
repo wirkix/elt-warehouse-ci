@@ -23,13 +23,27 @@ from pydantic import BaseModel
 
 
 def get_connection():
-    return sql.connect(
+    catalog = os.environ.get("DATABRICKS_CATALOG", "workspace")
+    schema = os.environ.get("DATABRICKS_STAGING_SCHEMA", "nba_staging")
+    connection = sql.connect(
         server_hostname=os.environ["DATABRICKS_HOST"],
         http_path=os.environ["DATABRICKS_HTTP_PATH"],
         access_token=os.environ["DATABRICKS_TOKEN"],
-        catalog=os.environ.get("DATABRICKS_CATALOG", "workspace"),
-        schema=os.environ.get("DATABRICKS_STAGING_SCHEMA", "nba_staging"),
+        catalog=catalog,
+        # Connecting with a schema that doesn't exist yet is fine (session
+        # opens either way) but every later unqualified statement resolves
+        # against it, so create it eagerly rather than failing on the
+        # first CREATE TABLE with SCHEMA_NOT_FOUND.
+        schema="default",
+        # The legacy Thrift transport 404s against this Free Edition
+        # serverless warehouse -- only the newer Statement Execution API
+        # (SEA) transport works externally here.
+        use_sea=True,
     )
+    with connection.cursor() as cursor:
+        cursor.execute(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
+        cursor.execute(f"USE SCHEMA {schema}")
+    return connection
 
 
 def land_records(connection, table: str, records: Iterable[BaseModel]) -> int:

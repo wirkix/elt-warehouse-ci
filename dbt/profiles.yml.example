@@ -12,3 +12,8 @@ nba_warehouse:
       http_path: "{{ env_var('DATABRICKS_HTTP_PATH') }}"
       token: "{{ env_var('DATABRICKS_TOKEN') }}"
       threads: 4
+      # The legacy Thrift transport 404s against this Free Edition
+      # serverless warehouse -- only the newer Statement Execution API
+      # (SEA) transport works externally here (see extract/landing.py).
+      connection_parameters:
+        use_sea: true
