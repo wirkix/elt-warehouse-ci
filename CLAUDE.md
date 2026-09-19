@@ -48,6 +48,18 @@ tests/          # extract/ unit tests -- fixtures only, no live API or Databrick
   machine's Avast HTTPS interception) -- don't remove it or outbound calls
   to `api.balldontlie.io` may fail TLS verification on this machine even
   though they work fine in CI.
+- **`dbt build`/`dbt run` on this dev machine spends ~5 minutes upfront on
+  a "SPOG discovery" probe that fails and falls back** -- dbt-databricks
+  1.12+ tries to auto-detect unified-workspace config by hitting
+  `https://<host>/.well-known/databricks-config` using a plain
+  `requests`/`urllib3` client that isn't patched with
+  `truststore.inject_into_ssl()` (unlike `extract/client.py`), so it hits
+  this same machine's usual Avast TLS-interception issue, retries for 5
+  minutes, then falls back to the explicit profile config and runs
+  normally. Verified this is dev-machine-only, not a real failure (the
+  build still succeeds, 31/31 tests passed) -- expect CI to skip this
+  delay entirely since GitHub Actions runners don't have Avast in the
+  path.
 - `dbt parse`/`dbt compile` need a `profiles.yml` with *some* Databricks
   target configured, even to just check Jinja/ref syntax -- `dbt parse`
   alone doesn't connect to the warehouse and is safe to run against dummy
