@@ -1,0 +1,29 @@
+services:
+  metabase:
+    image: metabase/metabase:latest
+    volumes:
+      - metabase-data:/metabase-data
+      # Databricks JDBC driver plugin -- Metabase doesn't ship it by
+      # default, see SETUP.md step 2 for where this jar comes from.
+      - ./plugins:/plugins
+    environment:
+      MB_DB_FILE: /metabase-data/metabase.db
+    restart: always
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    depends_on:
+      - metabase
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+    restart: always
+
+volumes:
+  metabase-data:
+  caddy-data:

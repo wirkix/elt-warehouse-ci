@@ -1,0 +1,5 @@
+requests
+truststore
+pydantic
+databricks-sql-connector
+dbt-databricks

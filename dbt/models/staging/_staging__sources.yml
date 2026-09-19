@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: nba_staging
+    schema: "{{ env_var('DATABRICKS_STAGING_SCHEMA', 'nba_staging') }}"
+    tables:
+      - name: raw_teams
+      - name: raw_players
+      - name: raw_games
+      - name: raw_stats

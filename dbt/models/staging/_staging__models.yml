@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: stg_teams
+    description: One row per NBA team, parsed from the raw landed JSON.
+    columns:
+      - name: team_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: stg_players
+    description: One row per NBA player, parsed from the raw landed JSON.
+    columns:
+      - name: player_id
+        data_tests:
+          - unique
+          - not_null
+      - name: team_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_teams')
+                field: team_id
+              config:
+                severity: warn  # players between teams/off-roster can land with a stale/null team
+
+  - name: stg_games
+    description: One row per NBA game, parsed from the raw landed JSON.
+    columns:
+      - name: game_id
+        data_tests:
+          - unique
+          - not_null
+      - name: home_team_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_teams')
+                field: team_id
+      - name: visitor_team_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_teams')
+                field: team_id
+
+  - name: stg_stats
+    description: One row per player-game box-score line, parsed from the raw landed JSON.
+    columns:
+      - name: stat_id
+        data_tests:
+          - unique
+          - not_null
+      - name: player_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_players')
+                field: player_id
+      - name: game_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_games')
+                field: game_id

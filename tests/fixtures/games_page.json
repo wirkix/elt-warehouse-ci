@@ -1,0 +1,34 @@
+{
+  "data": [
+    {
+      "id": 15908760,
+      "date": "2025-01-15T00:00:00.000Z",
+      "season": 2024,
+      "status": "Final",
+      "period": 4,
+      "time": "Final",
+      "postseason": false,
+      "home_team_score": 118,
+      "visitor_team_score": 112,
+      "home_team": {
+        "id": 14,
+        "conference": "West",
+        "division": "Pacific",
+        "city": "Los Angeles",
+        "name": "Lakers",
+        "full_name": "Los Angeles Lakers",
+        "abbreviation": "LAL"
+      },
+      "visitor_team": {
+        "id": 1,
+        "conference": "East",
+        "division": "Atlantic",
+        "city": "Boston",
+        "name": "Celtics",
+        "full_name": "Boston Celtics",
+        "abbreviation": "BOS"
+      }
+    }
+  ],
+  "meta": {"next_cursor": null, "per_page": 100}
+}

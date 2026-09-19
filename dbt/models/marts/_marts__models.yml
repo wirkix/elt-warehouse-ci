@@ -1,0 +1,78 @@
+version: 2
+
+models:
+  - name: dim_team
+    description: One row per NBA team.
+    columns:
+      - name: team_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_player
+    description: One row per NBA player, with their current team.
+    columns:
+      - name: player_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_date
+    description: Date spine covering every date a game in fact_game was played.
+    columns:
+      - name: date_day
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fact_game
+    description: One row per completed NBA game.
+    columns:
+      - name: game_id
+        data_tests:
+          - unique
+          - not_null
+      - name: date_day
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_day
+      - name: home_team_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_team')
+                field: team_id
+      - name: visitor_team_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_team')
+                field: team_id
+      - name: winning_team_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_team')
+                field: team_id
+
+  - name: fact_player_game_stats
+    description: One row per player-game box-score line.
+    columns:
+      - name: stat_id
+        data_tests:
+          - unique
+          - not_null
+      - name: player_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_player')
+                field: player_id
+      - name: game_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fact_game')
+                field: game_id

@@ -1,0 +1,47 @@
+name: Refresh data
+
+# Keeps the live demo current without a 24/7 orchestrator -- Databricks
+# Free Edition SQL warehouses auto-suspend between queries anyway, so a
+# long-running scheduler would mostly be waiting on cold starts. Runs
+# daily instead; adjust the cron if the free warehouse's usage quota gets
+# tight (see CLAUDE.md).
+on:
+  schedule:
+    - cron: "0 13 * * *"  # 13:00 UTC daily, well after that night's NBA games are Final
+  workflow_dispatch:
+
+env:
+  DATABRICKS_CATALOG: workspace
+  DATABRICKS_STAGING_SCHEMA: nba_staging
+  DATABRICKS_MARTS_SCHEMA: nba_marts
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - env:
+          BALLDONTLIE_API_KEY: ${{ secrets.BALLDONTLIE_API_KEY }}
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+        run: |
+          # balldontlie's "season" is the year it starts in (Oct-Jun) --
+          # before October, the current NBA season still belongs to last year.
+          year=$(date -u +%Y)
+          month=$(date -u +%m)
+          season=$([ "$month" -ge 10 ] && echo "$year" || echo "$((year - 1))")
+          python -m extract.run --seasons "$season"
+      - working-directory: dbt
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_PROFILES_DIR: .
+        run: |
+          cp profiles.yml.example profiles.yml
+          dbt build

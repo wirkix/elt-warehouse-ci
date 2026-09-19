@@ -1,0 +1,6 @@
+# Copy to Caddyfile on the VM and fill in the real subdomain -- Caddy
+# fetches/renews the Let's Encrypt cert for it automatically on first run,
+# no manual certbot step needed.
+metabase.YOURDOMAIN.tld {
+    reverse_proxy metabase:3000
+}

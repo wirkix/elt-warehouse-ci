@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+env:
+  DATABRICKS_CATALOG: workspace
+  DATABRICKS_STAGING_SCHEMA: nba_staging
+  DATABRICKS_MARTS_SCHEMA: nba_marts
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check extract tests
+      - run: pytest -q
+
+  # Databricks secrets aren't available on PRs from forks, so this job
+  # degrades to a skip rather than a failure when they're absent -- for
+  # this repo's own PRs/pushes (the only kind it gets) they're always set,
+  # so dbt test failures genuinely block the merge/deploy as intended.
+  dbt:
+    runs-on: ubuntu-latest
+    needs: python
+    outputs:
+      creds_configured: ${{ steps.creds.outputs.configured }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - id: creds
+        run: |
+          if [ -z "${{ secrets.DATABRICKS_HOST }}" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.creds.outputs.configured == 'true'
+        working-directory: dbt
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_PROFILES_DIR: .
+        run: |
+          cp profiles.yml.example profiles.yml
+          dbt deps || true
+          dbt build
+
+  docs:
+    runs-on: ubuntu-latest
+    needs: dbt
+    if: github.ref == 'refs/heads/main' && needs.dbt.outputs.creds_configured == 'true'
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - working-directory: dbt
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_HTTP_PATH: ${{ secrets.DATABRICKS_HTTP_PATH }}
+          DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+          DBT_PROFILES_DIR: .
+        run: |
+          cp profiles.yml.example profiles.yml
+          dbt docs generate
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dbt/target
+      - id: deployment
+        uses: actions/deploy-pages@v4
