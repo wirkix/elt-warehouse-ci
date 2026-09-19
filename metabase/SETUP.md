@@ -61,12 +61,12 @@ Databases -> Add a database**:
 - Personal access token: the same `DATABRICKS_TOKEN`
 - Catalog: `workspace`
 
-Then build dashboards against `nba_marts.fact_game` /
-`nba_marts.fact_player_game_stats` (team/player leaderboards, scoring
-trends over the season -- see the repo README for the exact mart schema),
-and set the relevant dashboard's public sharing link on for the portfolio
-card's `demo` link (Admin -> Sharing -> Public Sharing must be enabled
-first).
+Then build dashboards against `nba_marts.fact_game` (team results, scoring
+margins, win/loss over the season -- see the repo README for the exact
+mart schema; no player-game box scores, that's balldontlie's paid tier --
+see README's "Why this design"), and set the relevant dashboard's public
+sharing link on for the portfolio card's `demo` link (Admin -> Sharing ->
+Public Sharing must be enabled first).
 
 ## Status
 

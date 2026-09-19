@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from extract.models import Game, Player, Stat, Team
+from extract.models import Game, Player, Team
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -26,9 +26,3 @@ def test_game_validates():
     games = [Game.model_validate(row) for row in load("games_page.json")]
     assert games[0].home_team_score == 118
     assert games[0].postseason is False
-
-
-def test_stat_validates():
-    stats = [Stat.model_validate(row) for row in load("stats_page.json")]
-    assert stats[0].pts == 27
-    assert stats[0].game.id == 15908760

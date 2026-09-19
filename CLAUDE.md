@@ -16,7 +16,7 @@ later. Visualized in a self-hosted Metabase instance.
 ```
 extract/
   client.py     # balldontlie API client: cursor pagination, 5 req/min throttle, 429/5xx retry
-  models.py     # pydantic models per endpoint (Team, Player, Game, Stat)
+  models.py     # pydantic models per endpoint (Team, Player, Game)
   landing.py    # lands raw JSON into Databricks Delta staging tables, MERGEd by id
   run.py        # entrypoint: python -m extract.run --seasons 2024 2025
 dbt/
@@ -24,7 +24,7 @@ dbt/
   profiles.yml.example
   macros/generate_schema_name.sql   # custom +schema is used as-is, not concatenated with target schema
   models/staging/   # views, one per raw table -- parses payload JSON, casts types
-  models/marts/     # tables: dim_team, dim_player, dim_date, fact_game, fact_player_game_stats
+  models/marts/     # tables: dim_team, dim_player, dim_date, fact_game
   tests/            # custom singular data tests
 metabase/
   docker-compose.yml + Caddyfile.example + SETUP.md   # self-hosted, free VM
@@ -81,6 +81,31 @@ tests/          # extract/ unit tests -- fixtures only, no live API or Databrick
   `sequence()`/`explode()`, not `dbt_utils.date_spine()` -- this portfolio
   deliberately avoids a `dbt_utils` dependency (see job-market-radar's own
   CLAUDE.md for the same convention).
+- **This Free Edition serverless warehouse 404s on `databricks-sql-connector`'s
+  default Thrift transport** -- only the newer Statement Execution API
+  (SEA) transport works externally here. `extract/landing.py` passes
+  `use_sea=True` to `sql.connect()`; `dbt/profiles.yml.example` passes the
+  equivalent via `connection_parameters: {use_sea: true}` (a documented
+  dbt-databricks passthrough to the connector, not a dbt-native option).
+  Don't drop either or every connection attempt 404s.
+- **`cursor.executemany()` issues one sequential HTTP request per row, not
+  a batched insert** (documented in the connector's own docstring). Landing
+  ~7,400 players this way hung for 1.5+ hours doing effectively nothing.
+  `land_records()` batches up to `INSERT_CHUNK_SIZE` (1000) rows into each
+  `INSERT`'s `VALUES` list instead -- don't reintroduce `executemany` for
+  bulk loads here.
+- **A Databricks SEA connection left idle for a few minutes goes stale and
+  the client hangs on the next statement instead of raising an error** (0s
+  CPU, no active network connection, no exception -- ever). Hit this
+  because balldontlie's 5 req/min limit means paginating ~7,400 players
+  takes ~15 minutes, and the original code held one Databricks connection
+  open across that whole fetch. `extract/run.py` now fetches each table
+  fully from balldontlie *before* opening its Databricks connection
+  (`_fetch_then_land`) specifically to avoid ever leaving a connection
+  idle across a long pagination gap -- same class of bug as
+  ecobici-pulse's dropped-connection consumer, just silent instead of a
+  clean error here. If a future hang shows this same 0-CPU/no-connection
+  signature, suspect a stale connection first.
 
 ## Known gotchas / history
 
@@ -90,6 +115,14 @@ tests/          # extract/ unit tests -- fixtures only, no live API or Databrick
   fully anonymous/keyless. `extract/client.py` throttles to
   `60 / RATE_LIMIT_PER_MIN` seconds between requests and retries on 429
   using the `Retry-After` header.
+- **balldontlie's `/stats` endpoint (player-game box scores) requires
+  their paid ALL-STAR tier ($9.99/mo)** -- discovered live via a 401 on
+  the free-tier key, confirmed against their own docs. Deliberately not
+  paying for it to keep this project's "$0 indefinitely" pitch intact, so
+  the scope is teams/players/games only -- no `fact_player_game_stats`
+  mart. If that tradeoff ever changes, `/stats` needs its own `Stat`
+  pydantic model, client method, staging model, and mart re-added (all
+  removed, not stubbed out, when this was decided).
 - `.github/workflows/ci.yml`'s `dbt`/`docs` jobs check whether
   `secrets.DATABRICKS_HOST` is set and skip (not fail) if it's absent --
   this matters for PRs from a fork (no secret access) but also means

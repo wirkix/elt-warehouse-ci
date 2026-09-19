@@ -13,14 +13,14 @@ balldontlie API --(Python, rate-limited to 5 req/min)--> raw JSON
     --> dbt (dbt-databricks):
         models/staging  (views, one per raw table, JSON parsed + typed)
             --> models/marts (tables: dim_team, dim_player, dim_date,
-                fact_game, fact_player_game_stats)
+                fact_game)
         schema tests (unique/not_null/relationships) + a custom data test
         + dbt docs
     --> GitHub Actions: dbt build on every push/PR against Databricks,
         failing tests fail the workflow; dbt docs published to GitHub
         Pages on push to main
     --> Metabase (self-hosted on a free VM) over the Databricks SQL
-        warehouse -- team/player leaderboards, scoring trends
+        warehouse -- team standings/results, scoring trends over the season
 ```
 
 ## Why this design
@@ -47,6 +47,12 @@ balldontlie API --(Python, rate-limited to 5 req/min)--> raw JSON
   already cover Tableau Public and Power BI; Metabase is open-source and
   self-hostable, so it's the one BI tool in the portfolio that isn't a
   vendor's own free tier.
+- **Games-level scope only, no player-game box scores.** balldontlie's
+  `/stats` endpoint gates that behind their paid ALL-STAR tier
+  ($9.99/mo) -- found live via a 401, confirmed against their own docs.
+  Paying for it would break this project's "$0 indefinitely" pitch, so
+  the scope is teams/players/games (all free-tier) and marts built from
+  those: final scores, margins, win/loss, no per-player stat lines.
 
 ## Setup
 
@@ -96,14 +102,12 @@ cd dbt && dbt build   # schema + custom data tests, needs real Databricks creden
 
 ## Data model
 
-- `nba_staging.raw_teams` / `raw_players` / `raw_games` / `raw_stats` --
-  landed raw JSON payloads (one `payload` STRING column each), MERGEd by
-  `id` on every extract run.
+- `nba_staging.raw_teams` / `raw_players` / `raw_games` -- landed raw JSON
+  payloads (one `payload` STRING column each), MERGEd by `id` on every
+  extract run.
 - `nba_marts.dim_team`, `dim_player`, `dim_date` -- descriptive dimensions.
 - `nba_marts.fact_game` -- one row per completed game (`status = 'Final'`),
   with home/visitor scores, margin, and the winning team.
-- `nba_marts.fact_player_game_stats` -- one row per player-game box-score
-  line (points, rebounds, assists, shooting splits, etc.).
 
 ## Known limitations
 

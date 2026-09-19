@@ -7,4 +7,3 @@ sources:
       - name: raw_teams
       - name: raw_players
       - name: raw_games
-      - name: raw_stats

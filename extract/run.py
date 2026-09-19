@@ -1,10 +1,15 @@
-"""Entrypoint: pulls teams/players/games/stats from balldontlie and lands
-them in the Databricks staging schema.
+"""Entrypoint: pulls teams/players/games from balldontlie and lands them
+in the Databricks staging schema.
 
     python -m extract.run --seasons 2024 2025
 
 Season numbers are the year a season *starts* in (balldontlie convention),
 e.g. `2025` is the 2025-26 season.
+
+Deliberately no player-game stats (box scores) -- balldontlie's /stats
+gates that behind their paid ALL-STAR tier ($9.99/mo), which would break
+this project's "stays live at $0 indefinitely" goal. Games-level results
+(final scores, margins, win/loss) only.
 """
 
 from __future__ import annotations
@@ -14,7 +19,7 @@ import logging
 
 from extract.client import BalldontlieClient
 from extract.landing import get_connection, land_records
-from extract.models import Game, Player, Stat, Team
+from extract.models import Game, Player, Team
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -53,9 +58,6 @@ def main() -> None:
 
     games = [Game.model_validate(row) for row in client.games(args.seasons)]
     _fetch_then_land("games", games)
-
-    stats = [Stat.model_validate(row) for row in client.stats(args.seasons)]
-    _fetch_then_land("stats", stats)
 
 
 if __name__ == "__main__":

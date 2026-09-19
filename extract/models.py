@@ -48,29 +48,3 @@ class Game(BaseModel):
     visitor_team_score: int
     home_team: Team
     visitor_team: Team
-
-
-class Stat(BaseModel):
-    id: int
-    min: str | None = None
-    pts: float | None = None
-    ast: float | None = None
-    reb: float | None = None
-    stl: float | None = None
-    blk: float | None = None
-    turnover: float | None = None
-    fgm: float | None = None
-    fga: float | None = None
-    fg_pct: float | None = None
-    fg3m: float | None = None
-    fg3a: float | None = None
-    fg3_pct: float | None = None
-    ftm: float | None = None
-    fta: float | None = None
-    ft_pct: float | None = None
-    oreb: float | None = None
-    dreb: float | None = None
-    pf: float | None = None
-    player: Player
-    team: Team
-    game: Game

@@ -86,6 +86,3 @@ class BalldontlieClient:
 
     def games(self, seasons: list[int]) -> Iterator[dict]:
         return self.paginate("/games", {"seasons[]": seasons})
-
-    def stats(self, seasons: list[int]) -> Iterator[dict]:
-        return self.paginate("/stats", {"seasons[]": seasons})
