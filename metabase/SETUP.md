@@ -29,15 +29,20 @@ cert for a `*.duckdns.org` name same as any other domain:
 1. Sign in at https://www.duckdns.org with GitHub/Google/etc. -- **done**,
    `elt-warehouse-ci.duckdns.org` resolves to `163.192.133.188` (verified
    via `nslookup` 2026-09-19).
-2. Download the Databricks JDBC driver Metabase plugin jar (from
-   [Databricks' driver downloads page](https://www.databricks.com/spark/jdbc-drivers-download)
-   or the community Metabase-Databricks driver's GitHub releases) --
-   **done**, saved locally at `databricks/databricks-jdbc-3.4.2.jar`
-   (gitignored -- 41MB third-party binary, not committed). Still needs
-   copying onto the VM's `metabase/plugins/` once that directory exists
-   there (step 3), e.g.:
+2. Download the Databricks JDBC driver Metabase plugin jar, from Maven
+   Central (`https://repo1.maven.org/maven2/com/databricks/databricks-jdbc/<version>/databricks-jdbc-<version>.jar`
+   -- the GitHub releases page doesn't publish a raw jar asset) --
+   **done**, saved locally at `databricks/databricks-jdbc-3.4.3.jar`
+   (gitignored -- 41MB third-party binary, not committed). **Use 3.4.3 or
+   later, not 3.4.2** -- confirmed 2026-09-23: 3.4.2 (and presumably
+   earlier) hangs to a client-side timeout against this Free Edition
+   serverless warehouse instead of erroring, because it only attempts the
+   legacy Thrift transport; 3.4.3 added the automatic Thrift-to-SEA
+   fallback this warehouse needs (same underlying gotcha `dbt-databricks`
+   needed `use_sea: true` for). Still needs copying onto the VM's
+   `metabase/plugins/` once that directory exists there (step 3), e.g.:
    ```bash
-   scp -i ~/.ssh/ecobici_pulse_oracle databricks/databricks-jdbc-3.4.2.jar \
+   scp -i ~/.ssh/ecobici_pulse_oracle databricks/databricks-jdbc-3.4.3.jar \
        ubuntu@163.192.133.188:~/elt-warehouse-ci/metabase/plugins/
    ```
 
