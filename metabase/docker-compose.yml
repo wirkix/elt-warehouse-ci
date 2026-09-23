@@ -8,6 +8,8 @@ services:
       - ./plugins:/plugins
     environment:
       MB_DB_FILE: /metabase-data/metabase.db
+      MB_SESSION_SECRET_KEY: ${MB_SESSION_SECRET_KEY:?set in metabase/.env, see .env.example}
+      MB_ENCRYPTION_SECRET_KEY: ${MB_ENCRYPTION_SECRET_KEY:?set in metabase/.env, see .env.example}
     restart: always
     expose:
       - "3000"

@@ -71,6 +71,37 @@ see README's "Why this design"), and set the relevant dashboard's public
 sharing link on for the portfolio card's `demo` link (Admin -> Sharing ->
 Public Sharing must be enabled first).
 
+## 5. Harden before going public
+
+Confirmed 2026-09-23: fresh `docker compose up` starts with two things
+Metabase warns about on boot -- session cookies signed with no secret
+(forgeable by anyone with app-DB read access) and stored DB credentials
+(the Databricks PAT) unencrypted at rest. Fine for the first connectivity
+test, not fine for a box with 443 open to `0.0.0.0/0`.
+
+```bash
+cd ~/elt-warehouse-ci/metabase
+cp .env.example .env
+# fill both keys, e.g.:
+echo "MB_SESSION_SECRET_KEY=$(openssl rand -base64 32)" >> .env
+echo "MB_ENCRYPTION_SECRET_KEY=$(openssl rand -base64 32)" >> .env
+```
+
+`MB_ENCRYPTION_SECRET_KEY` doesn't encrypt existing data on its own --
+Metabase refuses to boot with the key set until the app DB has been
+migrated to it once:
+
+```bash
+docker compose stop metabase
+docker compose run --rm --entrypoint sh metabase -c \
+  "java --add-opens java.base/java.nio=ALL-UNNAMED -jar /app/metabase.jar enable-encryption"
+docker compose up -d
+```
+
+`MB_SESSION_SECRET_KEY` needs no migration -- it just needs to be set
+before `docker compose up`, which invalidates all existing sessions (you
+and anyone else logged in gets signed out once).
+
 ## Status
 
 VM confirmed reusable, DuckDNS subdomain claimed and resolving, JDBC
